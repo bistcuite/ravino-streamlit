@@ -49,7 +49,7 @@ st.markdown("""
         .stTextInput {
         position: fixed;
         bottom: 0;
-        padding-bottom: 20px;
+        padding-bottom: 45px;
         padding-right: 20px;
         padding-left: 20px;
         right: 0;
