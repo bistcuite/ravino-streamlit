@@ -75,7 +75,7 @@ model = genai.GenerativeModel(
 """,
 )
 # تنظیمات صفحه Streamlit
-st.set_page_config(page_title="راوینو | داستان را خودت روایت کن!")
+st.set_page_config(page_title="از زبانزد بپرس")
 st.markdown("""
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 <style>
@@ -135,7 +135,7 @@ if 'started' not in st.session_state:
     st.session_state.initial_response = response.text
 
 # عنوان برنامه
-st.title("جنگ بی‌نهایت")
+st.title("زبان‌مند")
 st.markdown(st.session_state.initial_response)
 
 # st.write(st.session_state.initial_response)
