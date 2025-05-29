@@ -14,7 +14,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
+    model_name="gemini-2.0-flash-exp",
     generation_config=generation_config,
   system_instruction="""شما دستیار هوشمند آموزشگاه زبان «زبانزد» هستید. آدرس سایت آموزشگاه: https://zabanzadacademy.ir/
 
@@ -128,8 +128,14 @@ def submit():
 # بخش ورودی کاربر
 st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
 
+# شروع داستان (فقط یک بار اجرا می‌شود)
+if 'started' not in st.session_state:
+    response = st.session_state.chat_session.send_message("شروع مکالمه")
+    st.session_state.started = True
+    st.session_state.initial_response = response.text
+
 # عنوان برنامه
-st.title("زبان‌‌مند")
+st.title("جنگ بی‌نهایت")
 st.markdown(st.session_state.initial_response)
 
 # st.write(st.session_state.initial_response)
@@ -139,6 +145,9 @@ while st.session_state.i < len(st.session_state.chat_session.history):
     message = st.session_state.chat_session.history[st.session_state.i]
 
     if message.role == "user":
+        if message.parts[0].text == "شروع مکالمه":
+            st.session_state.i += 1
+            continue
         with st.chat_message("user"):
             st.write(message.parts[0].text)
     else:
