@@ -90,9 +90,18 @@ p, div, input, label, h1, h2, h3, h4, h5, h6 {
     text-align: right;
     font-family: Vazirmatn, sans-serif !important;
 }
-.stTextInput > div > div > input {
-    direction: RTL;
-    font-family: Vazirmatn, sans-serif !important;
+.stTextInput {
+    position: fixed;
+    bottom: 0;
+    padding-bottom: 20px;
+    padding-right: 20px;
+    padding-left: 20px;
+    right: 0;
+    left: 0;
+    width: 100%;
+    margin-left: 1rem;
+    z-index: 100;
+    background-color: white;
 }
 .chat-container {
     max-height: 70vh;
@@ -106,8 +115,9 @@ p, div, input, label, h1, h2, h3, h4, h5, h6 {
 # مدیریت وضعیت (state) برنامه
 if 'chat_session' not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
-    st.session_state.chat_history = []  # لیست برای ذخیره تاریخچه پیام‌ها
+    st.session_state.chat_history = []
     st.session_state.initialized = False
+    st.session_state.last_processed_input = None
 
 # پیام خوش‌آمدگویی اولیه
 if not st.session_state.initialized:
@@ -119,29 +129,29 @@ if not st.session_state.initialized:
 st.title("زبان‌مند")
 st.markdown("دستیار هوشمند آموزشگاه زبانزد - از ما درباره کلاس‌ها یا هر چیز دیگری بپرسید!")
 
-# نمایش تاریخچه چت در یک ظرف با قابلیت اسکرول
+# نمایش تاریخچه چت
 with st.container():
     for msg in st.session_state.chat_history:
-        if msg["role"] == "user":
-            with st.chat_message("user"):
-                st.markdown(msg["content"])
-        else:
-            with st.chat_message("assistant"):
-                st.markdown(msg["content"])
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+# تابع برای پردازش ورودی
+def submit():
+    if st.session_state.user_input and st.session_state.user_input != st.session_state.get("last_processed_input", ""):
+        # ذخیره پیام کاربر
+        st.session_state.chat_history.append({"role": "user", "content": st.session_state.user_input})
+        
+        # ارسال پیام به مدل
+        response = st.session_state.chat_session.send_message(st.session_state.user_input)
+        
+        # ذخیره پاسخ مدل
+        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+        
+        # ذخیره ورودی فعلی برای جلوگیری از پردازش مجدد
+        st.session_state.last_processed_input = st.session_state.user_input
+        
+        # پاک کردن ورودی
+        st.session_state.user_input = ""
 
 # بخش ورودی کاربر
-user_input = st.text_input("", placeholder="چیزی بپرسید", key="user_input")
-
-# پردازش ورودی کاربر
-if user_input:
-    # افزودن پیام کاربر به تاریخچه
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-    
-    # ارسال پیام به مدل و دریافت پاسخ
-    response = st.session_state.chat_session.send_message(user_input)
-    
-    # افزودن پاسخ مدل به تاریخچه
-    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-    
-    # رفرش صفحه برای نمایش پیام جدید
-    st.rerun()
+st.text_input("", placeholder="چیزی بپرسید", key="user_input", on_change=submit)
