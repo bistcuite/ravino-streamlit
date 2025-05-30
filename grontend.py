@@ -2,7 +2,7 @@ import google.generativeai as genai
 import streamlit as st
 
 # تنظیم کلید API و مدل
-genai.configure(api_key="AIzaSyDuExne7oG9NnfNZeaqDOSXVtxUdau7IBU")
+genai.configure(api_key="YOUR_API_KEY")
 
 # تنظیمات مدل
 generation_config = {
@@ -75,7 +75,7 @@ model = genai.GenerativeModel(
 )
 
 # تنظیمات صفحه Streamlit
-st.set_page_config(page_title="از زبانزد بپرس")
+st.set_page_config(page_title="از زبانزد بپرس", layout="wide")
 st.markdown("""
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 <style>
@@ -83,83 +83,65 @@ body, html {
     direction: RTL;
     unicode-bidi: bidi-override;
     text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
+    font-family: Vazirmatn, sans-serif !important;
 }
 p, div, input, label, h1, h2, h3, h4, h5, h6 {
     direction: RTL;
     text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
+    font-family: Vazirmatn, sans-serif !important;
+}
+.stTextInput > div > div > input {
+    direction: RTL;
+    font-family: Vazirmatn, sans-serif !important;
+}
+.chat-container {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 100px;
 }
 </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-        .stTextInput {
-        position: fixed;
-        bottom: 0;
-        padding-bottom: 45px;
-        padding-right: 20px;
-        padding-left: 20px;
-        right: 0;
-        left: 0;
-        width: 100%;
-        margin-left: 1rem;
-        z-index: 100;
-      }
-    </style>
 """, unsafe_allow_html=True)
 
 # مدیریت وضعیت (state) برنامه
 if 'chat_session' not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
     st.session_state.chat_history = []  # لیست برای ذخیره تاریخچه پیام‌ها
+    st.session_state.initialized = False
 
-if 'started' not in st.session_state:
+# پیام خوش‌آمدگویی اولیه
+if not st.session_state.initialized:
     response = st.session_state.chat_session.send_message("شروع مکالمه")
-    st.session_state.initial_response = response.text
-    st.session_state.started = True
-
-# تابع برای ارسال پیام
-def submit():
-    if st.session_state.user_input:
-        st.session_state.prompt = st.session_state.user_input
-        st.session_state.user_input = ""
+    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+    st.session_state.initialized = True
 
 # عنوان برنامه
 st.title("زبان‌مند")
-st.markdown(st.session_state.initial_response)
+st.markdown("دستیار هوشمند آموزشگاه زبانزد - از ما درباره کلاس‌ها یا هر چیز دیگری بپرسید!")
 
-# نمایش تاریخچه چت
-for msg in st.session_state.chat_history:
-    if msg["role"] == "user":
-        with st.chat_message("user"):
-            st.write(msg["content"])
-    elif msg["role"] == "assistant":
-        with st.chat_message("assistant"):
-            st.write(msg["content"])
+# نمایش تاریخچه چت در یک ظرف با قابلیت اسکرول
+with st.container():
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
+            with st.chat_message("user"):
+                st.markdown(msg["content"])
+        else:
+            with st.chat_message("assistant"):
+                st.markdown(msg["content"])
 
 # بخش ورودی کاربر
-st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
+user_input = st.text_input("", placeholder="چیزی بپرسید", key="user_input")
 
-# بررسی ورودی کاربر و تولید پاسخ
-if 'prompt' in st.session_state and st.session_state.prompt:
+# پردازش ورودی کاربر
+if user_input:
     # افزودن پیام کاربر به تاریخچه
-    st.session_state.chat_history.append({"role": "user", "content": st.session_state.prompt})
-    
-    # نمایش پیام کاربر
-    with st.chat_message("user"):
-        st.write(st.session_state.prompt)
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
     
     # ارسال پیام به مدل و دریافت پاسخ
-    response = st.session_state.chat_session.send_message(st.session_state.prompt)
+    response = st.session_state.chat_session.send_message(user_input)
     
     # افزودن پاسخ مدل به تاریخچه
     st.session_state.chat_history.append({"role": "assistant", "content": response.text})
     
-    # نمایش پاسخ مدل
-    with st.chat_message("assistant"):
-        st.write(response.text)
-    
-    # پاک کردن ورودی
-    st.session_state.prompt = ""
+    # رفرش صفحه برای نمایش پیام جدید
+    st.rerun()
