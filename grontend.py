@@ -79,7 +79,7 @@ default_system_instruction = """شما دستیار هوشمند آموزشگا�
 """
 
 # تنظیمات صفحه Streamlit
-st.set_page_config(page_title="از زبانزد بپرس", layout="wide")
+st.set_page_config(page_title="زبان‌مند", layout="wide")
 st.markdown("""
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 <style>
@@ -87,24 +87,97 @@ body, html {
     direction: RTL;
     unicode-bidi: bidi-override;
     text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
+    font-family: Vazirmatn, sans-serif !important;
+    background-color: #f5f5f5;
 }
-p, div, input, label, h1, h2, h3, h4, h5, h6 {
-    direction: RTL;
-    text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
+.stApp {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.chat-message {
+    padding: 1rem;
+    margin: 0.5rem 0;
+    border-radius: 10px;
+    max-width: 70%;
+}
+.chat-message.user {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto;
+}
+.chat-message.assistant {
+    background-color: #e9ecef;
+    color: black;
+    margin-right: auto;
+}
+.stTextInput > div > div > input {
+    border: 1px solid #ced4da;
+    border-radius: 25px;
+    padding: 10px 20px;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: white;
 }
 .stTextInput {
     position: fixed;
-    bottom: 0;
-    padding-bottom: 45px;
-    padding-right: 20px;
-    padding-left: 20px;
-    right: 0;
-    left: 0;
-    width: 100%;
-    margin-left: 1rem;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 700px;
     z-index: 100;
+}
+.admin-link {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-size: 14px;
+}
+.admin-form {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.stForm {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.stTextArea > div > div > textarea {
+    border: 1px solid #ced4da;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: Vazirmatn, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+    body, html {
+        background-color: #1a1a1a;
+    }
+    .stApp {
+        background-color: #1a1a1a;
+    }
+    .chat-message.user {
+        background-color: #0a6bff;
+    }
+    .chat-message.assistant {
+        background-color: #2c2c2c;
+        color: white;
+    }
+    .stTextInput > div > div > input {
+        background-color: #2c2c2c;
+        color: white;
+        border-color: #444;
+    }
+    .stForm {
+        background-color: #2c2c2c;
+    }
+    .stTextArea > div > div > textarea {
+        background-color: #2c2c2c;
+        color: white;
+        border-color: #444;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -119,13 +192,12 @@ if 'model' not in st.session_state:
 
 # تابع برای بررسی لاگین
 def check_login(username, password):
-    # در عمل باید از روش‌های امن‌تر (مثل هش کردن) استفاده شود
     return username == "admin" and password == "admin123"
 
 # صفحه لاگین
 def login_page():
     st.title("ورود به پنل ادمین")
-    with st.form(key="login_form"):
+    with st.form(key="login_form", clear_on_submit=True):
         username = st.text_input("نام کاربری")
         password = st.text_input("رمز عبور", type="password")
         submit_button = st.form_submit_button("ورود")
@@ -140,7 +212,7 @@ def login_page():
 # صفحه پنل ادمین
 def admin_panel():
     st.title("پنل ادمین")
-    st.subheader("ویرایش System Instruction")
+    st.subheader("ویرایش دستورالعمل سیستم")
     
     with st.form(key="system_instruction_form"):
         new_instruction = st.text_area(
@@ -152,15 +224,13 @@ def admin_panel():
         
         if submit_button:
             try:
-                # بررسی معتبر بودن JSON در صورت وجود
                 json_start = new_instruction.find('```json')
                 if json_start != -1:
                     json_end = new_instruction.find('```', json_start + 7)
                     if json_end != -1:
                         json_str = new_instruction[json_start + 7:json_end].strip()
-                        json.loads(json_str)  # بررسی صحت JSON
+                        json.loads(json_str)
                 
-                # به‌روزرسانی system instruction و مدل
                 st.session_state.system_instruction = new_instruction
                 st.session_state.model = initialize_model(new_instruction)
                 st.session_state.chat_session = st.session_state.model.start_chat(history=[])
@@ -176,7 +246,6 @@ def admin_panel():
 
 # صفحه اصلی چت
 def main_page():
-    # مدیریت وضعیت (state) برنامه
     if 'prompt' not in st.session_state:
         st.session_state.prompt = ""
     if 'chat_session' not in st.session_state:
@@ -184,47 +253,41 @@ def main_page():
     if 'i' not in st.session_state:
         st.session_state.i = 0
 
-    # تابع برای ارسال پیام
     def submit():
         st.session_state.prompt = st.session_state.user_input
         st.session_state.user_input = ""
 
-    # بخش ورودی کاربر
-    st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
+    st.text_input("", placeholder="چیزی بپرسید...", on_change=submit, key="user_input")
 
-    # شروع داستان (فقط یک بار اجرا می‌شود)
     if 'started' not in st.session_state:
         response = st.session_state.chat_session.send_message("شروع مکالمه")
         st.session_state.started = True
         st.session_state.initial_response = response.text
 
-    # عنوان برنامه
     st.title("زبان‌مند")
     st.markdown(st.session_state.initial_response)
 
-    # نمایش تاریخچه چت (به جز پیام اولیه)
     while st.session_state.i < len(st.session_state.chat_session.history):
         message = st.session_state.chat_session.history[st.session_state.i]
         if message.role == "user":
             if message.parts[0].text == "شروع مکالمه":
                 st.session_state.i += 1
                 continue
-            with st.chat_message("user"):
-                st.write(message.parts[0].text)
+            with st.container():
+                st.markdown(f'<div class="chat-message user">{message.parts[0].text}</div>', unsafe_allow_html=True)
         else:
             if message.parts[0].text != st.session_state.initial_response:
-                st.write(message.parts[0].text)
+                st.markdown(f'<div class="chat-message assistant">{message.parts[0].text}</div>', unsafe_allow_html=True)
             else:
                 st.session_state.i += 1
                 continue
         st.session_state.i += 1
 
-    # بررسی ورودی کاربر و تولید پاسخ
     if st.session_state.prompt and 'started' in st.session_state:
+        with st.container():
+            st.markdown(f'<div class="chat-message user">{st.session_state.prompt}</div>', unsafe_allow_html=True)
         response = st.session_state.chat_session.send_message(st.session_state.prompt)
-        with st.chat_message("user"):
-            st.write(st.session_state.prompt)
-        st.write(response.text)
+        st.markdown(f'<div class="chat-message assistant">{response.text}</div>', unsafe_allow_html=True)
         st.session_state.prompt = ""
 
 # مدیریت صفحات
@@ -236,6 +299,6 @@ else:
     else:
         main_page()
 
-# لینک به پنل ادمین در صفحه اصلی
+# لینک به پنل ادمین
 if not st.session_state.logged_in and st.query_params.get("page") != ["admin"]:
-    st.markdown("[ورود به پنل ادمین](?page=admin)")
+    st.markdown('<a href="?page=admin" class="admin-link">ورود به پنل ادمین</a>', unsafe_allow_html=True)
