@@ -16,11 +16,9 @@ generation_config = {
 model = genai.GenerativeModel(
     model_name="gemini-2.0-flash-exp",
     generation_config=generation_config,
-  system_instruction="""شما دستیار هوشمند آموزشگاه زبان «زبانزد» هستید. آدرس سایت آموزشگاه: https://zabanzadacademy.ir/
+    system_instruction="""شما دستیار هوشمند آموزشگاه زبان «زبانزد» هستید. آدرس سایت آموزشگاه: https://zabanzadacademy.ir/
 
 دو وظیفه اصلی دارید:
-
----
 
 🟦 ۱. مشاوره درباره کلاس‌های آموزشگاه:
 
@@ -72,8 +70,10 @@ model = genai.GenerativeModel(
     }
   ]
 }
-""",
+```
+"""
 )
+
 # تنظیمات صفحه Streamlit
 st.set_page_config(page_title="از زبانزد بپرس")
 st.markdown("""
@@ -105,71 +105,53 @@ st.markdown("""
         left: 0;
         width: 100%;
         margin-left: 1rem;
-            z-index:100;
+        z-index: 100;
       }
     </style>
 """, unsafe_allow_html=True)
 
 # مدیریت وضعیت (state) برنامه
-if 'prompt' not in st.session_state:
-    st.session_state.prompt = ""
-
 if 'chat_session' not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
 
-if 'i' not in st.session_state:
-    st.session_state.i = 0
+if 'started' not in st.session_state:
+    response = st.session_state.chat_session.send_message("شروع مکالمه")
+    st.session_state.initial_response = response.text
+    st.session_state.started = True
 
 # تابع برای ارسال پیام
 def submit():
     st.session_state.prompt = st.session_state.user_input
     st.session_state.user_input = ""
 
-# بخش ورودی کاربر
-st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
-
-# شروع داستان (فقط یک بار اجرا می‌شود)
-if 'started' not in st.session_state:
-    response = st.session_state.chat_session.send_message("شروع مکالمه")
-    st.session_state.started = True
-    st.session_state.initial_response = response.text
-
 # عنوان برنامه
 st.title("زبان‌مند")
 st.markdown(st.session_state.initial_response)
 
-# st.write(st.session_state.initial_response)
-# نمایش تاریخچه چت (به جز پیام اولیه)
-
-while st.session_state.i < len(st.session_state.chat_session.history):
-    message = st.session_state.chat_session.history[st.session_state.i]
-
-    if message.role == "user":
-        if message.parts[0].text == "شروع مکالمه":
-            st.session_state.i += 1
-            continue
+# نمایش تاریخچه چت
+for message in st.session_state.chat_session.history:
+    if message.role == "user" and message.parts[0].text != "شروع مکالمه":
         with st.chat_message("user"):
             st.write(message.parts[0].text)
-    else:
-        if message.parts[0].text != st.session_state.initial_response:
+    elif message.role == "model" and message.parts[0].text != st.session_state.initial_response:
+        with st.chat_message("assistant"):
             st.write(message.parts[0].text)
-        else:
-            st.session_state.i += 1
-            continue
-    st.session_state.i += 1
-    
+
+# بخش ورودی کاربر
+st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
 
 # بررسی ورودی کاربر و تولید پاسخ
-if st.session_state.prompt and 'started' in st.session_state:
-    # ارسال پیام جدید به مدل
-    response = st.session_state.chat_session.send_message(st.session_state.prompt)
-    
+if 'prompt' in st.session_state and st.session_state.prompt:
     # نمایش پیام کاربر
     with st.chat_message("user"):
         st.write(st.session_state.prompt)
     
+    # ارسال پیام جدید به مدل
+    response = st.session_state.chat_session.send_message(st.session_state.prompt)
+    
     # نمایش پاسخ مدل
-    st.write(response.text)
-    print(st.session_state.chat_session.history)
+    with st.chat_message("assistant"):
+        st.write(response.text)
+    
     # پاک کردن ورودی پس از ارسال
     st.session_state.prompt = ""
