@@ -113,6 +113,7 @@ st.markdown("""
 # مدیریت وضعیت (state) برنامه
 if 'chat_session' not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
+    st.session_state.chat_history = []  # لیست برای ذخیره تاریخچه پیام‌ها
 
 if 'started' not in st.session_state:
     response = st.session_state.chat_session.send_message("شروع مکالمه")
@@ -121,37 +122,44 @@ if 'started' not in st.session_state:
 
 # تابع برای ارسال پیام
 def submit():
-    st.session_state.prompt = st.session_state.user_input
-    st.session_state.user_input = ""
+    if st.session_state.user_input:
+        st.session_state.prompt = st.session_state.user_input
+        st.session_state.user_input = ""
 
 # عنوان برنامه
 st.title("زبان‌مند")
 st.markdown(st.session_state.initial_response)
 
 # نمایش تاریخچه چت
-for message in st.session_state.chat_session.history:
-    if message.role == "user" and message.parts[0].text != "شروع مکالمه":
+for msg in st.session_state.chat_history:
+    if msg["role"] == "user":
         with st.chat_message("user"):
-            st.write(message.parts[0].text)
-    elif message.role == "model" and message.parts[0].text != st.session_state.initial_response:
+            st.write(msg["content"])
+    elif msg["role"] == "assistant":
         with st.chat_message("assistant"):
-            st.write(message.parts[0].text)
+            st.write(msg["content"])
 
 # بخش ورودی کاربر
 st.text_input("", placeholder="چیزی بپرسید", on_change=submit, key="user_input")
 
 # بررسی ورودی کاربر و تولید پاسخ
 if 'prompt' in st.session_state and st.session_state.prompt:
+    # افزودن پیام کاربر به تاریخچه
+    st.session_state.chat_history.append({"role": "user", "content": st.session_state.prompt})
+    
     # نمایش پیام کاربر
     with st.chat_message("user"):
         st.write(st.session_state.prompt)
     
-    # ارسال پیام جدید به مدل
+    # ارسال پیام به مدل و دریافت پاسخ
     response = st.session_state.chat_session.send_message(st.session_state.prompt)
+    
+    # افزودن پاسخ مدل به تاریخچه
+    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
     
     # نمایش پاسخ مدل
     with st.chat_message("assistant"):
         st.write(response.text)
     
-    # پاک کردن ورودی پس از ارسال
+    # پاک کردن ورودی
     st.session_state.prompt = ""
