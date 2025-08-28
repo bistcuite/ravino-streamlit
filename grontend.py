@@ -19,7 +19,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp",
+    model_name="gemini-2.5-flash-image-preview",
     generation_config=generation_config,
     system_instruction="""
     شما یک متخصص پردازش تصویر هستید که به کاربران در ویرایش و بهبود تصاویر محصول کمک می‌کنید.
