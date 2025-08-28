@@ -1,5 +1,10 @@
 import google.generativeai as genai
 import streamlit as st
+from PIL import Image
+import io
+import base64
+import hashlib
+import os
 
 # تنظیم کلید API و مدل
 genai.configure(api_key="AIzaSyDuExne7oG9NnfNZeaqDOSXVtxUdau7IBU")
@@ -16,104 +21,235 @@ generation_config = {
 model = genai.GenerativeModel(
     model_name="gemini-2.0-flash-exp",
     generation_config=generation_config,
-  system_instruction="شما یک راوی داستان تعاملی هستید و داستان را برای کاربر روایت می‌کنید. همیشه از دوم شخص (تو) برای مخاطب استفاده کن.  \nکاربر شخصیت اصلی داستان است و شما باید هر صحنه را از دید او توصیف کنید. هنگام روایت، هیچگاه از سوم شخص (او) برای کاربر استفاده نکن. تمام توصیفات باید با جزئیات و حس ماجراجویی همراه باشد تا کاربر احساس کند که واقعاً در دل داستان حضور دارد.  \n\nبرای شروع:  \nتو، آریال، تنها بازمانده از محفل اشباح سیاه، با قدم‌های محکم در دل شبی مه‌آلود و پرخطر، به سوی خرابه‌های قدیمی حرکت می‌کنی. هر قدمت صدای خش‌خش برگ‌های خشک زیر پا را به گوش می‌رساند. شنلت در باد سرد شبانه به اهتزاز درمی‌آید و تاریکی اطراف، همچون سایه‌هایی زنده تو را احاطه کرده است. هیچ انتخابی در این لحظه ساده نیست، اما می‌دانی که باید استاد داسنیرو را پیدا کنی تا سرزمینت را از دست جادوگر شوم، آلتایر، نجات دهی.  \n\nیادآوری مهم:  \n- همیشه روایت را به زبان فارسی و از دوم شخص (تو) ادامه بده.  \n- تنها در اولین پیام، نام شخصیت (آریال) به او یادآوری شود.  \n- هرگز مستقیماً از کاربر نپرس که چه می‌خواهد بکند یا به او راه پیشنهاد نکن.  \n- فقط صحنه را توصیف کن و ماجراجویی را پیش ببر، به گونه‌ای که کاربر خود تصمیم بگیرد.  \n- کاربر را به نامش نخوان. فکر کن داری یک رمان فانتزی با روایت دوم شخص می‌نویسی.  \n",
+    system_instruction="""
+    شما یک متخصص پردازش تصویر هستید که به کاربران در ویرایش و بهبود تصاویر محصول کمک می‌کنید.
+    لطفاً بر اساس تصویر ارائه شده و درخواست کاربر، پیشنهادات حرفه‌ای ارائه دهید.
+    در پاسخ‌های خود موارد زیر را رعایت کنید:
+    - ارائه توضیحات فنی واضح و مختصر
+    - پیشنهاد راه‌حل‌های عملی برای بهبود تصویر
+    - ذکر نکات مهم در پردازش تصویر محصول
+    - پاسخ‌های مفید و کاربردی بدون حاشیه
+    تو یک ربات هستی تا تصاویر عکاسی معمولی را همانطوری که کاربر میگوید تبدیل کنی به تصاویر حرفه ای عکاسی شده برای همین خیلی خیلی خیلی خیلی مهم است که جزئیات محصولی که کاربر تصویرش را فرستاده حفظ شود. ممکن است لباس را در تن یک انسان ببیند یا روی آویز یا هر چیز دیگری. صرفا هم به لباس محدود نیست تصاویر و تمام محصولات دنیا را ممکن است شامل شود.
+    """
 )
+
 # تنظیمات صفحه Streamlit
-st.set_page_config(page_title="راوینو | داستان را خودت روایت کن!")
+st.set_page_config(page_title="پردازش تصویر با جمنای", layout="wide")
 st.markdown("""
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 <style>
-body, html {
-    direction: RTL;
-    unicode-bidi: bidi-override;
-    text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
-}
-p, div, input, label, h1, h2, h3, h4, h5, h6 {
-    direction: RTL;
-    text-align: right;
-    font-family: Vazirmatn, sans-serif!important;
-}
+    body, html, .stApp {
+        direction: RTL;
+        unicode-bidi: bidi-override;
+        text-align: right;
+        font-family: Vazirmatn, sans-serif!important;
+        background-color: #f8f9fa;
+    }
+    p, div, input, label, h1, h2, h3, h4, h5, h6 {
+        direction: RTL;
+        text-align: right;
+        font-family: Vazirmatn, sans-serif!important;
+    }
+    .uploaded-image {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .chat-message {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-message.user {
+        background-color: #e3f2fd;
+        border-right: 4px solid #2196f3;
+    }
+    .chat-message.assistant {
+        background-color: #f3e5f5;
+        border-right: 4px solid #9c27b0;
+    }
+    .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        padding: 2rem;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-    <style>
-        .stTextInput {
-        position: fixed;
-        bottom: 0;
-        padding-bottom: 45px;
-        padding-right: 20px;
-        padding-left: 20px;
-        right: 0;
-        left: 0;
-        width: 100%;
-        margin-left: 1rem;
-            z-index:100;
-      }
-    </style>
-""", unsafe_allow_html=True)
+# مدیریت احراز هویت
+def check_password():
+    """بررسی رمز عبور کاربر"""
+    # رمز عبور هش شده (برای امنیت بیشتر)
+    # رمز پیش فرض: admin123 (می‌توانید تغییر دهید)
+    hashed_password = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"  # admin123
+    
+    # اگر کاربر قبلاً وارد شده بود
+    if st.session_state.get("authenticated", False):
+        return True
+        
+    # نمایش فرم ورود
+    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+    st.title("🔐 ورود به سیستم")
+    
+    password = st.text_input("رمز عبور:", type="password")
+    login_button = st.button("ورود")
+    
+    if login_button:
+        # هش کردن رمز وارد شده و مقایسه با رمز ذخیره شده
+        input_hash = hashlib.sha256(password.encode()).hexdigest()
+        if input_hash == hashed_password:
+            st.session_state.authenticated = True
+            st.success("ورود موفقیت‌آمیز بود!")
+            st.rerun()
+        else:
+            st.error("رمز عبور نادرست است")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    return False
+
+# بررسی احراز هویت قبل از نمایش محتوای اصلی
+if not check_password():
+    st.stop()
 
 # مدیریت وضعیت (state) برنامه
-if 'prompt' not in st.session_state:
-    st.session_state.prompt = ""
+if 'uploaded_image' not in st.session_state:
+    st.session_state.uploaded_image = None
 
-if 'chat_session' not in st.session_state:
-    st.session_state.chat_session = model.start_chat(history=[])
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-if 'i' not in st.session_state:
-    st.session_state.i = 0
+if 'processing_request' not in st.session_state:
+    st.session_state.processing_request = ""
 
-# تابع برای ارسال پیام
-def submit():
-    st.session_state.prompt = st.session_state.user_input
-    st.session_state.user_input = ""
+# تابع برای پردازش تصویر با جمنای
+def process_image_with_gemini(image, prompt):
+    try:
+        # تبدیل تصویر به فرمتی که جمنای بتواند پردازش کند
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        # ایجاد مدل برای پردازش تصویر
+        vision_model = genai.GenerativeModel('gemini-pro-vision')
+        
+        # ارسال تصویر و درخواست به جمنای
+        response = vision_model.generate_content([
+            prompt,
+            Image.open(io.BytesIO(img_byte_arr))
+        ])
+        
+        return response.text
+    except Exception as e:
+        return f"خطا در پردازش تصویر: {str(e)}"
 
-# بخش ورودی کاربر
-st.text_input("", placeholder="چه می‌کنید؟", on_change=submit, key="user_input")
-
-# شروع داستان (فقط یک بار اجرا می‌شود)
-if 'started' not in st.session_state:
-    response = st.session_state.chat_session.send_message("شروع داستان")
-    st.session_state.started = True
-    st.session_state.initial_response = response.text
+# تابع برای پردازش متن با جمنای
+def process_text_with_gemini(prompt):
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"خطا در پردازش متن: {str(e)}"
 
 # عنوان برنامه
-st.title("جنگ بی‌نهایت")
-st.markdown(st.session_state.initial_response)
+st.title("🎨 پردازش تصویر با جمنای")
+st.markdown("تصویر محصول خود را paste کنید یا آپلود کنید و با جمنای چت کنید")
 
-# st.write(st.session_state.initial_response)
-# نمایش تاریخچه چت (به جز پیام اولیه)
+# دکمه خروج
+if st.sidebar.button("خروج از سیستم"):
+    st.session_state.authenticated = False
+    st.rerun()
 
-while st.session_state.i < len(st.session_state.chat_session.history):
-    message = st.session_state.chat_session.history[st.session_state.i]
+# ایجاد دو ستون
+col1, col2 = st.columns([1, 2])
 
-    if message.role == "user":
-        if message.parts[0].text == "شروع داستان":
-            st.session_state.i += 1
-            continue
-        with st.chat_message("user"):
-            st.write(message.parts[0].text)
-    else:
-        if message.parts[0].text != st.session_state.initial_response:
-            st.write(message.parts[0].text)
+with col1:
+    st.header("📤 آپلود تصویر")
+    
+    # روش اول: آپلود فایل
+    uploaded_file = st.file_uploader("تصویر را انتخاب کنید", type=["png", "jpg", "jpeg"])
+    
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.session_state.uploaded_image = image
+        st.image(image, caption="تصویر آپلود شده", use_column_width=True)
+    
+    # روش دوم: Paste از کلیپ‌بورد
+    st.markdown("---")
+    st.subheader("📋 Paste از کلیپ‌بورد")
+    
+    # ایجاد یک زمینه برای paste کردن تصویر
+    paste_area = st.empty()
+    paste_content = paste_area.text_input("برای paste کردن تصویر، اینجا کلیک کنید و Ctrl+V را بزنید", 
+                                         help="میتوانید تصویر را از هر جایی کپی کنید و اینجا paste کنید")
+    
+    if paste_content:
+        try:
+            # اگر کاربر تصویری paste کرده باشد
+            if paste_content.startswith('data:image'):
+                # استخراج داده‌های base64 از URL
+                image_data = paste_content.split(',')[1]
+                decoded_image = base64.b64decode(image_data)
+                image = Image.open(io.BytesIO(decoded_image))
+                st.session_state.uploaded_image = image
+                st.image(image, caption="تصویر Paste شده", use_column_width=True)
+                paste_area.text_input("برای paste کردن تصویر، اینجا کلیک کنید و Ctrl+V را بزنید", value="")
+            else:
+                st.info("لطفاً یک تصویر معتبر paste کنید")
+        except Exception as e:
+            st.error(f"خطا در پردازش تصویر paste شده: {str(e)}")
+
+with col2:
+    st.header("💬 چت با جمنای")
+    
+    # نمایش تاریخچه چت
+    for message in st.session_state.chat_history:
+        with st.container():
+            if message['role'] == 'user':
+                st.markdown(f"<div class='chat-message user'><strong>شما:</strong> {message['content']}</div>", 
+                           unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='chat-message assistant'><strong>جمنای:</strong> {message['content']}</div>", 
+                           unsafe_allow_html=True)
+    
+    # ورودی کاربر
+    user_input = st.text_input("سوال یا درخواست خود را وارد کنید", key="user_input")
+    
+    if st.button("ارسال") and user_input:
+        # افزودن پیام کاربر به تاریخچه چت
+        st.session_state.chat_history.append({'role': 'user', 'content': user_input})
+        
+        # پردازش درخواست
+        if st.session_state.uploaded_image:
+            # اگر تصویر وجود دارد، از مدل بینایی استفاده کنید
+            with st.spinner("جمنای در حال پردازش تصویر..."):
+                response = process_image_with_gemini(st.session_state.uploaded_image, user_input)
         else:
-            st.session_state.i += 1
-            continue
-    st.session_state.i += 1
-    
+            # اگر تصویر وجود ندارد، از مدل متنی استفاده کنید
+            with st.spinner("جمنای در حال پردازش..."):
+                response = process_text_with_gemini(user_input)
+        
+        # افزودن پاسخ جمنای به تاریخچه چت
+        st.session_state.chat_history.append({'role': 'assistant', 'content': response})
+        
+        # رفرش صفحه برای نمایش پیام جدید
+        st.rerun()
 
-# بررسی ورودی کاربر و تولید پاسخ
-if st.session_state.prompt and 'started' in st.session_state:
-    # ارسال پیام جدید به مدل
-    response = st.session_state.chat_session.send_message(st.session_state.prompt)
-    
-    # نمایش پیام کاربر
-    with st.chat_message("user"):
-        st.write(st.session_state.prompt)
-    
-    # نمایش پاسخ مدل
-    st.write(response.text)
-    print(st.session_state.chat_session.history)
-    # پاک کردن ورودی پس از ارسال
-    st.session_state.prompt = ""
+# بخش راهنما
+st.markdown("---")
+st.subheader("📋 راهنما")
+st.markdown("""
+1. **آپلود تصویر**: از طریق دکمه 'تصویر را انتخاب کنید' یک فایل تصویر آپلود کنید
+2. **Paste تصویر**: از هر جایی تصویر را کپی کنید (Ctrl+C) و در کادر متن Paste کنید (Ctrl+V)
+3. **چت با جمنای**: درخواست خود را تایپ کنید و ارسال کنید
+4. **نمایش نتایج**: پاسخ جمنای در بخش چت نمایش داده می‌شود
+""")
+
+# پاک کردن تاریخچه چت
+if st.button("پاک کردن تاریخچه چت"):
+    st.session_state.chat_history = []
+    st.rerun()
